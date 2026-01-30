@@ -1,0 +1,21 @@
+sample_id,image_path,uploaded_at,location_lat,location_lon,part,measured_weight_kg,moisture_percent,vs_fraction,particle_state,shredded_bool,contamination_bool,notes
+SYN001,images_synthetic/SYN001.jpg,2025-11-09T14:49:51.782765,9.128113182950806,76.34134483886925,leaf,1.15,89.3,0.72,shredded,true,false,synthetic sample
+SYN002,images_synthetic/SYN002.jpg,2025-11-09T14:49:51.782765,9.120585495742812,76.34942415184214,pseudostem,6.52,83.7,0.55,shredded,true,false,synthetic sample
+SYN003,images_synthetic/SYN003.jpg,2025-11-09T14:49:51.782765,9.123245414126025,76.34354050175467,peel,1.4,85.5,0.74,shredded,true,true,synthetic sample
+SYN004,images_synthetic/SYN004.jpg,2025-11-09T14:49:51.782765,9.128251930144476,76.3458973929785,peel,5.98,88.7,0.64,chopped,false,false,synthetic sample
+SYN005,images_synthetic/SYN005.jpg,2025-11-09T14:49:51.782765,9.125920210397522,76.34296105538684,leaf,0.95,71.8,0.66,shredded,true,false,synthetic sample
+SYN006,images_synthetic/SYN006.jpg,2025-11-09T14:49:51.782765,9.12285985727443,76.34828647579467,pseudostem,4.53,77.2,0.67,whole,false,true,synthetic sample
+SYN007,images_synthetic/SYN007.jpg,2025-11-09T14:49:51.782765,9.127409610054958,76.34331027457131,pseudostem,2.56,75.5,0.59,chopped,false,false,synthetic sample
+SYN008,images_synthetic/SYN008.jpg,2025-11-09T14:49:51.782765,9.12843364616427,76.34402325135845,pseudostem,6.12,89.3,0.73,shredded,true,false,synthetic sample
+SYN009,images_synthetic/SYN009.jpg,2025-11-09T14:49:51.782765,9.12647355089265,76.34172864924136,pseudostem,2.87,89.0,0.69,chopped,false,false,synthetic sample
+SYN010,images_synthetic/SYN010.jpg,2025-11-09T14:49:51.782765,9.120451090642733,76.34803033782116,leaf,0.82,74.5,0.62,chopped,false,false,synthetic sample
+SYN011,images_synthetic/SYN011.jpg,2025-11-09T14:49:51.782765,9.126953603954055,76.34720946386089,pseudostem,7.67,76.3,0.65,whole,false,true,synthetic sample
+SYN012,images_synthetic/SYN012.jpg,2025-11-09T14:49:51.782765,9.127050970810936,76.34416846866189,leaf,0.96,75.8,0.55,chopped,false,false,synthetic sample
+SYN013,images_synthetic/SYN013.jpg,2025-11-09T14:49:51.782765,9.128575328632127,76.34769678252088,peel,2.52,88.9,0.8,whole,false,false,synthetic sample
+SYN014,images_synthetic/SYN014.jpg,2025-11-09T14:49:51.782765,9.12579860216685,76.3422448998434,leaf,1.04,71.6,0.75,shredded,true,false,synthetic sample
+SYN015,images_synthetic/SYN015.jpg,2025-11-09T14:49:51.782765,9.128778562341026,76.34200294129589,leaf,1.35,87.4,0.59,shredded,true,false,synthetic sample
+SYN016,images_synthetic/SYN016.jpg,2025-11-09T14:49:51.782765,9.127640378753346,76.34273955202715,peel,2.05,76.1,0.57,shredded,true,false,synthetic sample
+SYN017,images_synthetic/SYN017.jpg,2025-11-09T14:49:51.782765,9.12840925171971,76.3476225523785,peel,4.04,78.8,0.67,chopped,false,false,synthetic sample
+SYN018,images_synthetic/SYN018.jpg,2025-11-09T14:49:51.782765,9.122142462250594,76.34724215600114,leaf,0.59,81.0,0.67,whole,false,false,synthetic sample
+SYN019,images_synthetic/SYN019.jpg,2025-11-09T14:49:51.782765,9.127282416439225,76.34896930957025,pseudostem,1.26,78.3,0.77,chopped,false,false,synthetic sample
+SYN020,images_synthetic/SYN020.jpg,2025-11-09T14:49:51.782765,9.123403773187684,76.34229151627416,leaf,1.41,81.1,0.61,chopped,false,false,synthetic sample

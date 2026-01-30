@@ -1,0 +1,7 @@
+node_modules/
+.env
+__pycache__/
+outputs/
+dataset/
+images_synthetic/
+ml/

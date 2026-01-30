@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>🌾 Farmer | AgroGas Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: 'Poppins', sans-serif; background: linear-gradient(120deg,#e8f5e9,#ffffff); margin:0; padding:0; }
+  header { background:#0f7a4a; color:white; text-align:center; padding:14px 16px; font-size:20px; font-weight:700; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .header-left { display:flex; align-items:center; gap:12px; }
+  .header-title { flex:1; text-align:center; font-size:18px; }
+  .container { max-width:940px; margin:24px auto; background:#fff; padding:26px; border-radius:18px; box-shadow:0 6px 25px rgba(0,0,0,0.08); }
+  .upload-box { border:2px dashed #0f7a4a; border-radius:16px; padding:20px; text-align:center; background:#f7fff8; }
+  input, select { padding:10px; border-radius:8px; border:1px solid #ccc; margin:8px 0; width:86%; font-size:15px; display:block; margin-left:auto; margin-right:auto; }
+  label.small { font-size:13px; color:#444; display:block; margin-top:8px; }
+  .btn { background:#0f7a4a; color:white; border:none; padding:12px 22px; border-radius:12px; font-weight:600; cursor:pointer; transition:0.18s; margin-top:12px; }
+  .btn:disabled { opacity:0.6; cursor:not-allowed; }
+  .btn:hover:not(:disabled) { background:#0c5f38; }
+  img.logo { height:36px; width:auto; border-radius:6px; }
+  img.preview { max-width:100%; border-radius:12px; margin-top:12px; display:block; margin-left:auto; margin-right:auto; }
+  .metrics { display:flex; justify-content:space-around; flex-wrap:wrap; margin-top:18px; gap:12px; }
+  .metric { flex:1 1 40%; background:#f8fff9; border-radius:12px; margin:8px; padding:14px; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.05); min-width:160px; }
+  .metric h2 { color:#0f7a4a; margin:0; font-size:20px; }
+  .metric p { color:#555; margin:6px 0 0; font-size:13px; }
+  .recommendation { margin-top:18px; background:#fff7e6; border-left:6px solid #f6b33d; padding:12px; border-radius:8px; }
+  .chart-container { margin-top:18px; }
+  .history { margin-top:22px; padding:12px; background:#f0fff2; border-radius:10px; }
+  .history h3 { margin-top:0; color:#0f7a4a; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  table th, table td { border-bottom:1px solid #ddd; padding:8px; text-align:center; }
+  table th { background:#0f7a4a; color:white; font-weight:600; }
+  .logout { background: transparent; color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 10px; cursor: pointer; }
+  footer { text-align:center; margin:30px; color:#666; font-size:13px; }
+  .small-note { font-size:13px; color:#444; margin-top:6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <!-- Put the AgroGas logo PNG inside your frontend folder and reference it like "./A_logo_for_AgroGas_features_a_stylized_green_leaf_.png" -->
+    <img class="logo" src="./A_logo_for_AgroGas_features_a_stylized_green_leaf_.png" alt="AgroGas logo" onerror="this.style.display='none'">
+  </div>
+  <div class="header-title">🌾 Farmer Dashboard | AgroGas Analyzer</div>
+  <div style="padding-right:12px;">
+    <button class="logout" onclick="logout()">🚪 Logout</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="upload-box">
+    <h3>Enter Your Details</h3>
+
+    <input type="text" id="farmerName" placeholder="👨‍🌾 Farmer Name" required>
+    <input type="text" id="farmerLocation" placeholder="📍 Location (Village / District)" required>
+    <input type="text" id="farmerPhone" placeholder="📞 Phone Number" required>
+
+    <h3 style="margin-top:14px;">Upload Banana Residue Image</h3>
+    <input type="file" id="fileInput" accept="image/*" aria-label="Upload residue image">
+
+    <label class="small">Measured residue weight (kg) — <strong>Farmer must enter</strong></label>
+    <input type="number" id="measuredWeight" placeholder="e.g. 3.50" step="0.01" min="0" required>
+
+    <img id="preview" class="preview" style="display:none;" alt="preview">
+
+    <div style="margin-top:10px;">
+      <button id="analyzeBtn" class="btn" onclick="predict()">🔍 Analyze & Save</button>
+    </div>
+
+    <p class="small-note">Note: measured weight is required. The model predicts moisture and VS; we use the farmer-entered weight to compute biogas & revenue.</p>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><h2 id="mass">—</h2><p>Weight (kg)</p></div>
+    <div class="metric"><h2 id="moisture">—</h2><p>Moisture (%)</p></div>
+    <div class="metric"><h2 id="biogas">—</h2><p>Biogas (m³)</p></div>
+    <div class="metric"><h2 id="revenue">—</h2><p>Revenue (₹)</p></div>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="biogasChart" height="110"></canvas>
+  </div>
+
+  <div class="recommendation">
+    <strong>Recommendation:</strong>
+    <p id="rec">Enter weight, upload residue, and click Analyze to view results.</p>
+  </div>
+
+  <div class="history">
+    <h3>📜 Prediction History</h3>
+    <table id="historyTable">
+      <thead>
+        <tr><th>#</th><th>Name</th><th>Location</th><th>Phone</th><th>Weight (kg)</th><th>Biogas (m³)</th><th>Revenue (₹)</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<footer>Developed by Team AgroGas | Farmer Interface</footer>
+
+<script>
+/* State */
+let biogasChart = null;
+let history = JSON.parse(localStorage.getItem("history") || "[]");
+
+/* Render history into table */
+function renderHistory() {
+  const tbody = document.querySelector("#historyTable tbody");
+  tbody.innerHTML = "";
+  history.forEach((item, i) => {
+    tbody.innerHTML += `<tr>
+      <td>${i+1}</td>
+      <td>${escapeHtml(item.farmer_name || "-")}</td>
+      <td>${escapeHtml(item.location || "-")}</td>
+      <td>${escapeHtml(item.phone || "-")}</td>
+      <td>${item.mass_kg}</td>
+      <td>${item.predicted_m3_biogas}</td>
+      <td>₹ ${item.revenue_estimate}</td>
+    </tr>`;
+  });
+}
+renderHistory();
+
+/* Helper to escape HTML (small safety) */
+function escapeHtml(s){ return String(s).replace(/[&<>"'`]/g, (c)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;' })[c]); }
+
+/* Logout */
+function logout(){
+  localStorage.removeItem("agrogas_user");
+  window.location.href = "login.html";
+}
+
+/* Main predict function */
+async function predict(){
+  const analyzeBtn = document.getElementById("analyzeBtn");
+  analyzeBtn.disabled = true;
+  analyzeBtn.innerText = "Please wait...";
+
+  try {
+    const fileInput = document.getElementById("fileInput");
+    const file = fileInput.files[0];
+    const name = document.getElementById("farmerName").value.trim();
+    const location = document.getElementById("farmerLocation").value.trim();
+    const phone = document.getElementById("farmerPhone").value.trim();
+    const measuredWeightRaw = document.getElementById("measuredWeight").value.trim();
+
+    if (!file) {
+      alert("Please choose an image file of the residue.");
+      return;
+    }
+    if (!name || !location || !phone) {
+      alert("Please fill farmer name, location and phone.");
+      return;
+    }
+    if (!measuredWeightRaw || Number(measuredWeightRaw) <= 0) {
+      alert("Please enter a valid measured weight (kg) greater than 0.");
+      return;
+    }
+
+    // Preview image
+    const imgPreview = document.getElementById("preview");
+    imgPreview.src = URL.createObjectURL(file);
+    imgPreview.style.display = "block";
+
+    const measuredWeight = parseFloat(measuredWeightRaw);
+
+    // Build form data
+    const formData = new FormData();
+    formData.append("image", file);
+    // keep fresh_dried for backward compatibility (not used for measured-weight flow)
+    formData.append("fresh_dried", "dried");
+    formData.append("measured_weight", measuredWeight);
+    formData.append("scale_feat", 0.0);
+
+    // === IMPORTANT: absolute backend URL so requests reach FastAPI on port 8000 ===
+    const BACKEND_BASE = "http://127.0.0.1:8000";
+
+    // Call backend predict (POST multipart/form-data)
+    const res = await fetch(BACKEND_BASE + "/api/v1/predict", { method: "POST", body: formData });
+
+    if (!res.ok) {
+      // try to parse error json
+      let errText = `${res.status} ${res.statusText}`;
+      try {
+        const errJson = await res.json();
+        errText = errJson.error || JSON.stringify(errJson);
+      } catch (e) { /* ignore */ }
+      alert("Error from backend: " + errText);
+      return;
+    }
+
+    const data = await res.json();
+
+    // attach farmer details for saving/display
+    data.farmer_name = name;
+    data.location = location;
+    data.phone = phone;
+
+    // Fill UI with results
+    document.getElementById("mass").innerText = (data.mass_kg !== null ? data.mass_kg : measuredWeight) + " kg";
+    document.getElementById("moisture").innerText = (data.moisture_percent !== undefined ? data.moisture_percent : "—") + " %";
+    document.getElementById("biogas").innerText = (data.predicted_m3_biogas !== undefined ? data.predicted_m3_biogas : "—") + " m³";
+    document.getElementById("revenue").innerText = (data.revenue_estimate !== undefined ? ("₹ " + data.revenue_estimate) : "—");
+    document.getElementById("rec").innerText = data.recommendation || "";
+
+    // Chart + history
+    updateChart(data.predicted_m3_biogas || 0, data.revenue_estimate || 0);
+    addToHistory(data);
+
+    // Persist to backend records (best-effort; ignore errors but log them)
+    try {
+      await fetch(BACKEND_BASE + "/api/v1/records", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+    } catch (e) {
+      console.warn("Failed to save record to backend:", e);
+    }
+
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    alert("Unexpected error: " + (err.message || err));
+  } finally {
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    analyzeBtn.disabled = false;
+    analyzeBtn.innerText = "🔍 Analyze & Save";
+  }
+}
+
+/* Chart update */
+function updateChart(biogas, revenue) {
+  const ctx = document.getElementById('biogasChart').getContext('2d');
+  if (biogasChart) biogasChart.destroy();
+  biogasChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Biogas (m³)', 'Revenue (₹)'],
+      datasets: [{
+        label: 'Prediction Output',
+        data: [biogas, revenue],
+        backgroundColor: ['#0f7a4a', '#f6b33d']
+      }]
+    },
+    options: { scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+  });
+}
+
+/* History handling */
+function addToHistory(data) {
+  history.push(data);
+  // keep last 200 only
+  if (history.length > 200) history = history.slice(history.length - 200);
+  localStorage.setItem("history", JSON.stringify(history));
+  renderHistory();
+}
+
+/* Role validation on page load */
+window.addEventListener("load", () => {
+  const user = JSON.parse(localStorage.getItem("agrogas_user") || "{}");
+  if (!user.role) {
+    alert("Please login first!");
+    window.location.href = "login.html";
+    return;
+  }
+  // optionally pre-fill name/phone/location
+  if (user.name) document.getElementById("farmerName").value = user.name;
+  // restrict access by role (optional)
+  if (user.role !== "farmer") {
+    if (user.role === "buyer") window.location.href = "buyer.html";
+    if (user.role === "admin") window.location.href = "admin.html";
+  }
+});
+</script>
+
+</body>
+</html>

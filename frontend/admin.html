@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>🛠 Admin Control Panel | AgroGas</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: 'Poppins', sans-serif; background: linear-gradient(120deg,#fff7e6,#ffffff); margin:0; padding:0; }
+  header { background:#f6b33d; color:white; text-align:center; padding:18px; font-size:24px; font-weight:700; position:relative; }
+  header button { position:absolute; right:20px; top:12px; background:#e74c3c; border:none; padding:8px 12px; border-radius:8px; color:white; cursor:pointer; }
+  .container { max-width:900px; margin:28px auto; background:#fff; border-radius:14px; padding:22px; box-shadow:0 6px 20px rgba(0,0,0,0.06); }
+  label { display:block; margin-top:14px; color:#444; font-weight:600; }
+  input { width:100%; padding:10px; border-radius:8px; border:1px solid #ddd; margin-top:8px; box-sizing:border-box; }
+  .btn { margin-top:14px; background:#f6b33d; border:none; padding:10px 14px; border-radius:10px; font-weight:700; cursor:pointer; color:#1a1a1a; }
+  .btn:disabled { opacity:0.6; cursor:not-allowed; }
+  .summary-box { background:#fff3d9; padding:18px; border-radius:10px; margin-top:18px; }
+  .summary-item { margin:8px 0; font-size:16px; color:#0f7a4a; }
+  footer { text-align:center; color:#666; margin:30px; }
+  .note { font-size:13px; color:#555; margin-top:8px; }
+  .small-muted { font-size:12px; color:#666; margin-top:6px; }
+</style>
+</head>
+<body>
+
+<header>👩‍💼 Admin Control Panel | AgroGas
+  <button onclick="logout()">🚪 Logout</button>
+</header>
+
+<div class="container">
+  <h2 style="text-align:center; color:#c9730d; margin:6px 0 14px;">System Configuration</h2>
+
+  <label>💰 Biogas Price (₹ per m³)</label>
+  <input id="priceInput" type="number" step="0.01" placeholder="e.g. 50.00" />
+
+  <label>⚙️ Default yield per kg VS (m³)</label>
+  <input id="yieldInput" type="number" step="0.0001" placeholder="e.g. 0.20" />
+
+  <label>🔥 Default methane fraction (0-1)</label>
+  <input id="methaneInput" type="number" step="0.01" min="0" max="1" placeholder="e.g. 0.55" />
+
+  <button id="saveCfgBtn" class="btn">💾 Save Configuration</button>
+  <p class="note">Note: admin edits affect new predictions and revenue calculations.</p>
+
+  <div class="summary-box" id="summaryBox">
+    <h3 style="margin-top:0; color:#c9730d;">📊 System Summary</h3>
+    <div class="summary-item" id="farmersCount">Farmers: —</div>
+    <div class="summary-item" id="totalBiogas">Total Biogas: — m³</div>
+    <div class="summary-item" id="totalRevenue">Total Revenue: — ₹</div>
+    <div class="summary-item" id="lastUpdated">Last record timestamp: —</div>
+    <div class="small-muted" id="cfgSource">Config source: data/config.json (live)</div>
+  </div>
+
+  <div style="margin-top:18px;">
+    <button class="btn" id="refreshBtn">🔄 Refresh Data</button>
+  </div>
+</div>
+
+<footer>AgroGas Admin • Manage price & defaults</footer>
+
+<script>
+const BACKEND = "http://127.0.0.1:8000"; // change if your backend runs elsewhere
+
+// helpers
+const $ = id => document.getElementById(id);
+const niceNum = (v, d=2) => (Number(v||0)).toFixed(d);
+
+// load config and set inputs
+async function loadConfig(){
+  try {
+    const res = await fetch(BACKEND + "/api/v1/admin/config");
+    if (!res.ok) {
+      console.warn("GET /api/v1/admin/config failed:", res.status);
+      return;
+    }
+    const cfg = await res.json();
+
+    // support both uppercase keys or snake_case keys returned by backend
+    const price = cfg.PRICE_PER_M3 ?? cfg.price_per_m3 ?? cfg.pricePerM3 ?? cfg.pricePerM3;
+    const yieldVal = cfg.DEFAULT_YIELD_PER_KGVS ?? cfg.default_yield_per_kgvs ?? cfg.defaultYieldPerKgVs;
+    const methane = cfg.DEFAULT_METHANE_FRACTION ?? cfg.default_methane_fraction ?? cfg.defaultMethaneFraction;
+
+    $("priceInput").value = (price !== undefined && price !== null) ? price : "";
+    $("yieldInput").value = (yieldVal !== undefined && yieldVal !== null) ? yieldVal : "";
+    $("methaneInput").value = (methane !== undefined && methane !== null) ? methane : "";
+    $("cfgSource").innerText = "Config source: live / api";
+  } catch (e) {
+    console.error("loadConfig error:", e);
+    $("cfgSource").innerText = "Config source: default/fallback (error reading API)";
+  }
+}
+
+async function saveConfig(){
+  const btn = $("saveCfgBtn");
+  btn.disabled = true;
+  btn.innerText = "Saving...";
+  try {
+    const payload = {
+      PRICE_PER_M3: parseFloat($("priceInput").value) || 0,
+      DEFAULT_YIELD_PER_KGVS: parseFloat($("yieldInput").value) || 0,
+      DEFAULT_METHANE_FRACTION: parseFloat($("methaneInput").value) || 0
+    };
+
+    const res = await fetch(BACKEND + "/api/v1/admin/config", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(()=>`HTTP ${res.status}`);
+      alert("Failed to save configuration: " + text);
+      return;
+    }
+
+    // success
+    alert("Configuration saved successfully.");
+    // re-load config and summary to reflect changes instantly
+    await Promise.all([ loadConfig(), loadSummary() ]);
+  } catch (e) {
+    console.error("saveConfig error:", e);
+    alert("Error saving configuration. See console.");
+  } finally {
+    btn.disabled = false;
+    btn.innerText = "💾 Save Configuration";
+  }
+}
+
+// load all records and compute summary
+async function loadSummary(){
+  try {
+    const res = await fetch(BACKEND + "/api/v1/records");
+    if (!res.ok) {
+      $("farmersCount").innerText = "Farmers: (error fetching records)";
+      console.warn("GET /api/v1/records failed", res.status);
+      return;
+    }
+    const recs = await res.json();
+    // handle route returning list vs object {records: [...]}
+    const records = Array.isArray(recs) ? recs : (recs.records || recs);
+
+    const phones = new Set();
+    let totalBiogas = 0, totalRevenue = 0;
+    let lastTs = null;
+
+    records.forEach(r => {
+      if (r.phone) phones.add(r.phone);
+      totalBiogas += Number(r.predicted_m3_biogas || 0);
+      totalRevenue += Number(r.revenue_estimate || 0);
+      if (r.timestamp) {
+        const t = new Date(r.timestamp);
+        if (!lastTs || t > lastTs) lastTs = t;
+      }
+    });
+
+    $("farmersCount").innerText = `Farmers: ${phones.size} (unique phones) — submissions: ${records.length}`;
+    $("totalBiogas").innerText = `Total Biogas: ${niceNum(totalBiogas, 3)} m³`;
+    $("totalRevenue").innerText = `Total Revenue: ₹ ${niceNum(totalRevenue, 2)}`;
+    $("lastUpdated").innerText = `Last record timestamp: ${ lastTs ? lastTs.toLocaleString() : "-" }`;
+  } catch (e) {
+    console.error("loadSummary error:", e);
+    $("farmersCount").innerText = "Farmers: (error)";
+  }
+}
+
+async function refreshAll(){
+  $("farmersCount").innerText = "Farmers: loading…";
+  $("totalBiogas").innerText = "Total Biogas: loading…";
+  $("totalRevenue").innerText = "Total Revenue: loading…";
+  await Promise.all([ loadConfig(), loadSummary() ]);
+}
+
+function logout(){
+  localStorage.removeItem("agrogas_user");
+  window.location.href = "login.html";
+}
+
+// attach events
+$("saveCfgBtn").addEventListener("click", saveConfig);
+$("refreshBtn").addEventListener("click", refreshAll);
+
+// role-check + initial load
+window.addEventListener("load", () => {
+  const user = JSON.parse(localStorage.getItem("agrogas_user") || "{}");
+  if (!user.role) {
+    alert("Please login first.");
+    window.location.href = "login.html";
+    return;
+  }
+  if (user.role !== "admin") {
+    alert("Access denied: admin only.");
+    window.location.href = "login.html";
+    return;
+  }
+  // load data
+  refreshAll();
+});
+</script>
+</body>
+</html>

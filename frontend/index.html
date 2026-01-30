@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌿 AgroGas | Smart Biogas Prediction Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body {
+  font-family: 'Poppins', sans-serif;
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(135deg, #e8f5e9, #ffffff);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+header {
+  background: #0f7a4a;
+  color: white;
+  text-align: center;
+  padding: 25px 10px;
+  font-size: 28px;
+  font-weight: 700;
+}
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+}
+h1 {
+  color: #0f7a4a;
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+p {
+  font-size: 18px;
+  color: #444;
+  max-width: 600px;
+  margin-bottom: 30px;
+}
+.btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 15px;
+}
+.btn {
+  background: #0f7a4a;
+  color: white;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+  font-size: 16px;
+}
+.btn:hover { background: #0c5f38; }
+.stats {
+  margin-top: 40px;
+  background: #f0fff2;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  width: 90%;
+  max-width: 800px;
+}
+.stats h3 { color: #0f7a4a; margin-top: 0; }
+footer {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-size: 14px;
+  background: #f7fff8;
+}
+</style>
+</head>
+<body>
+
+<header>🌿 Welcome to AgroGas</header>
+
+<main>
+  <h1>Smart Biogas Prediction Platform</h1>
+  <p>AgroGas empowers farmers, buyers, and administrators to collaborate in a sustainable ecosystem — predicting biogas output, estimating revenue, and managing renewable energy production efficiently.</p>
+  
+  <div class="btn-group">
+    <button class="btn" onclick="window.location.href='login.html'">🌾 Login as Farmer</button>
+    <button class="btn" onclick="window.location.href='login.html'">🏭 Login as Buyer</button>
+    <button class="btn" onclick="window.location.href='login.html'">🧑‍💼 Login as Admin</button>
+  </div>
+
+  <div class="stats">
+    <h3>📈 System Overview</h3>
+    <p id="farmerCount">Total Farmers: —</p>
+    <p id="totalBiogas">Total Biogas Predicted: —</p>
+    <p id="totalRevenue">Total Revenue: —</p>
+    <canvas id="overviewChart" height="100"></canvas>
+  </div>
+</main>
+
+<footer>Developed by Team AgroGas | Sustainable Future through AI 🌱</footer>
+
+<script>
+let overviewChart = null;
+
+// Fetch backend data to show live stats
+async function loadStats() {
+  try {
+    const res = await fetch("http://127.0.0.1:8000/api/v1/records");
+    const data = await res.json();
+    if (!data.records || data.records.length === 0) return;
+
+    const farmers = data.records.length;
+    const totalBiogas = data.records.reduce((a, b) => a + b.predicted_m3_biogas, 0);
+    const totalRevenue = data.records.reduce((a, b) => a + b.revenue_estimate, 0);
+
+    document.getElementById("farmerCount").innerText = `Total Farmers: ${farmers}`;
+    document.getElementById("totalBiogas").innerText = `Total Biogas Predicted: ${totalBiogas.toFixed(2)} m³`;
+    document.getElementById("totalRevenue").innerText = `Total Revenue: ₹ ${totalRevenue.toFixed(2)}`;
+
+    const ctx = document.getElementById("overviewChart").getContext("2d");
+    if (overviewChart) overviewChart.destroy();
+    overviewChart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: ["Biogas (m³)", "Revenue (₹)"],
+        datasets: [{
+          label: "AgroGas System Stats",
+          data: [totalBiogas, totalRevenue],
+          backgroundColor: ["#0f7a4a", "#f6b33d"]
+        }]
+      },
+      options: { scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+    });
+  } catch (e) {
+    console.log("Backend not connected yet.");
+  }
+}
+
+window.onload = loadStats;
+</script>
+
+</body>
+</html>

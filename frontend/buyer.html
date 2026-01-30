@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>🏭 Buyer Dashboard | AgroGas</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: 'Poppins', sans-serif; background: linear-gradient(120deg,#e3fdf5,#ffffff); margin:0; padding:0; }
+    header { background:#0f7a4a; color:white; text-align:center; padding:18px 10px; font-size:24px; font-weight:700; position:relative; }
+    header button { position:absolute; right:18px; top:12px; background:#e74c3c; border:none; padding:8px 12px; border-radius:8px; color:#fff; cursor:pointer; }
+    .container { max-width:1100px; margin:28px auto; background:#fff; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,0.08); padding:22px; }
+    h2 { color:#0f7a4a; text-align:center; margin:6px 0 18px; }
+    .controls { display:flex; gap:12px; align-items:center; margin-bottom:12px; }
+    .btn { background:#0f7a4a; color:white; border:none; padding:10px 14px; border-radius:10px; font-weight:600; cursor:pointer; }
+    .btn.secondary { background:#f6b33d; color:#123; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; font-size:14px; }
+    th, td { padding:10px 8px; border-bottom:1px solid #eee; text-align:center; }
+    th { background:#0f7a4a; color:white; font-weight:600; }
+    tr:hover { background:#f6fff6; }
+    input.qty { width:84px; padding:6px 8px; border-radius:6px; border:1px solid #ccc; text-align:center; }
+    .summary { margin-top:18px; background:#f0fff2; padding:12px; border-radius:8px; }
+    .summary strong { display:block; margin-bottom:6px; color:#0f7a4a; }
+    .totals { display:flex; gap:20px; align-items:center; margin-top:8px; }
+    .totals div { background:#fff; padding:10px 12px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.04); }
+    #orderPanel { margin-top:14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    #placeOrderBtn { background:#0f7a4a; color:#fff; padding:10px 16px; border-radius:10px; cursor:pointer; border:none; }
+    #placeOrderBtn:disabled { opacity:0.6; cursor:not-allowed; }
+    .small { font-size:13px; color:#444; }
+    footer { text-align:center; margin:30px; font-size:13px; color:#666; }
+    .muted { color:#666; font-size:13px; }
+  </style>
+</head>
+<body>
+<header>
+  🏭 Buyer Dashboard | AgroGas Network
+  <button onclick="logout()">🚪 Logout</button>
+</header>
+
+<div class="container">
+  <h2>Farmer Residue Submissions</h2>
+
+  <div class="controls">
+    <button class="btn" onclick="loadData()">🔄 Refresh Data</button>
+    <button class="btn secondary" onclick="selectAllAvailable()">Select All Available</button>
+    <div style="flex:1"></div>
+    <div class="small">Buyer name: <input id="buyerName" placeholder="Your name" style="padding:6px 8px; margin-left:8px; border-radius:6px; border:1px solid #ccc;" /></div>
+    <div class="small">Phone: <input id="buyerPhone" placeholder="Phone" style="padding:6px 8px; margin-left:8px; border-radius:6px; border:1px solid #ccc;" /></div>
+  </div>
+
+  <table id="buyerTable" aria-live="polite">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Select</th>
+        <th>Farmer</th>
+        <th>Location</th>
+        <th>Phone</th>
+        <th>Weight (kg)</th>
+        <th>Available (kg)</th>
+        <th>Unit price (₹/kg)</th>
+        <th>Biogas (m³)</th>
+        <th>Revenue (₹)</th>
+        <th>Qty to buy (kg)</th>
+        <th>Line total (₹)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div class="summary">
+    <strong>📊 Order summary</strong>
+    <div class="totals">
+      <div>Total selected items: <span id="totalItems">0</span></div>
+      <div>Total kg requested: <span id="totalKg">0.00</span> kg</div>
+      <div>Total price: ₹ <span id="grandTotal">0.00</span></div>
+    </div>
+
+    <div id="orderPanel">
+      <button id="placeOrderBtn" class="btn" onclick="placeOrder()" disabled>🛒 Place Order</button>
+      <button class="btn secondary" onclick="clearSelection()">Clear Selection</button>
+    </div>
+    <div class="muted" style="margin-top:8px;">Tip: unit price is calculated from record's revenue / mass if available. You can edit buyer name/phone before placing order.</div>
+  </div>
+
+  <div style="margin-top:18px;">
+    <h3 style="color:#0f7a4a; margin:8px 0;">Previous Orders</h3>
+    <div id="ordersArea" class="small">No orders loaded yet.</div>
+  </div>
+</div>
+
+<footer>Developed by Team AgroGas | Buyer View</footer>
+
+<script>
+const BACKEND = "http://127.0.0.1:8000";
+let records = [];
+let ordersCache = [];
+
+function escapeHtml(s){ return String(s||"").replace(/[&<>"'`]/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'})[c]); }
+
+async function loadData(){
+  try {
+    const tbody = document.querySelector("#buyerTable tbody");
+    tbody.innerHTML = `<tr><td colspan="12">Loading...</td></tr>`;
+    const res = await fetch(BACKEND + "/api/v1/records");
+    if (!res.ok) throw new Error(`Failed to load records: ${res.status}`);
+    const data = await res.json();
+    records = Array.isArray(data) ? data : (data.records || data);
+    renderTable(records);
+    await loadOrders();
+  } catch (err) {
+    console.error(err);
+    const tbody = document.querySelector("#buyerTable tbody");
+    tbody.innerHTML = `<tr><td colspan="12">Error loading records. See console.</td></tr>`;
+  }
+}
+
+function renderTable(list){
+  const tbody = document.querySelector("#buyerTable tbody");
+  if (!list || list.length === 0){
+    tbody.innerHTML = `<tr><td colspan="12">No records available yet.</td></tr>`;
+    updateSummary();
+    return;
+  }
+
+  tbody.innerHTML = "";
+  list.forEach((r, i) => {
+    const unit_price = (r.mass_kg && r.revenue_estimate) ? (r.revenue_estimate / r.mass_kg) : 0;
+    const avail = (r.available_kg === null || r.available_kg === undefined) ? (r.mass_kg || 0) : r.available_kg;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td><input type="checkbox" class="sel" data-id="${r.id}" onchange="onSelectChange(event)"></td>
+      <td>${escapeHtml(r.farmer_name || '-')}</td>
+      <td>${escapeHtml(r.location || '-')}</td>
+      <td>${escapeHtml(r.phone || '-')}</td>
+      <td>${(r.mass_kg !== null && r.mass_kg !== undefined) ? Number(r.mass_kg).toFixed(2) : '-'}</td>
+      <td>${Number(avail || 0).toFixed(2)}</td>
+      <td>₹ ${Number(unit_price || 0).toFixed(2)}</td>
+      <td>${(r.predicted_m3_biogas!==undefined && r.predicted_m3_biogas!==null) ? Number(r.predicted_m3_biogas).toFixed(3) : '-'}</td>
+      <td>₹ ${(r.revenue_estimate!==undefined && r.revenue_estimate!==null) ? Number(r.revenue_estimate).toFixed(2) : '0.00'}</td>
+      <td><input type="number" class="qty" data-id="${r.id}" min="0" step="0.01" value="0.00" oninput="onQtyChange(event)"></td>
+      <td class="line" data-id="${r.id}">₹ 0.00</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  updateSummary();
+}
+
+function onSelectChange(e){
+  const checkbox = e.target;
+  const id = Number(checkbox.dataset.id);
+  const row = checkbox.closest("tr");
+  const qtyInput = row.querySelector("input.qty");
+  if (checkbox.checked){
+    if (Number(qtyInput.value) <= 0){
+      const rec = records.find(x=>x.id===id);
+      const avail = rec ? (rec.available_kg ?? rec.mass_kg ?? 0) : 0;
+      const defaultQty = Math.min(1, avail) || 0;
+      qtyInput.value = defaultQty.toFixed(2);
+    }
+  } else {
+    qtyInput.value = "0.00";
+  }
+  computeLineFor(id);
+  updateSummary();
+}
+
+function onQtyChange(e){
+  const id = Number(e.target.dataset.id);
+  const rec = records.find(x=>x.id===id);
+  const avail = rec ? (rec.available_kg ?? rec.mass_kg ?? 0) : 0;
+  let v = Number(e.target.value || 0);
+  if (v < 0) v = 0;
+  if (v > avail){
+    v = avail;
+    e.target.value = v.toFixed(2);
+    alert("Requested quantity exceeds available stock; clamped to available.");
+  }
+  const tr = e.target.closest("tr");
+  const cb = tr.querySelector("input.sel");
+  if (v > 0) cb.checked = true; else cb.checked = false;
+  computeLineFor(id);
+  updateSummary();
+}
+
+function computeLineFor(record_id){
+  const rec = records.find(x=>x.id === record_id);
+  if (!rec) return;
+  const unit_price = (rec.mass_kg && rec.revenue_estimate) ? (rec.revenue_estimate / rec.mass_kg) : 0;
+  const tbody = document.querySelector("#buyerTable tbody");
+  const row = tbody.querySelector(`input.qty[data-id="${record_id}"]`).closest("tr");
+  const qty = Number(row.querySelector("input.qty").value || 0);
+  const lineTotal = +(qty * unit_price);
+  row.querySelector(`.line[data-id="${record_id}"]`).innerText = `₹ ${lineTotal.toFixed(2)}`;
+}
+
+function updateSummary(){
+  const tbody = document.querySelector("#buyerTable tbody");
+  const rows = tbody.querySelectorAll("tr");
+  let totalItems = 0, totalKg = 0, grand = 0;
+  rows.forEach(r=>{
+    const cb = r.querySelector("input.sel");
+    const qtyInput = r.querySelector("input.qty");
+    if (!qtyInput) return;
+    const qty = Number(qtyInput.value || 0);
+    if (cb && cb.checked && qty > 0){
+      totalItems += 1;
+      totalKg += qty;
+      const id = Number(qtyInput.dataset.id);
+      const rec = records.find(x=>x.id===id);
+      const unit_price = (rec.mass_kg && rec.revenue_estimate) ? (rec.revenue_estimate / rec.mass_kg) : 0;
+      grand += qty * unit_price;
+    }
+  });
+  document.getElementById("totalItems").innerText = totalItems;
+  document.getElementById("totalKg").innerText = totalKg.toFixed(2);
+  document.getElementById("grandTotal").innerText = grand.toFixed(2);
+  document.getElementById("placeOrderBtn").disabled = (totalItems === 0 || grand <= 0);
+}
+
+function clearSelection(){
+  const tbody = document.querySelector("#buyerTable tbody");
+  tbody.querySelectorAll("input.sel").forEach(cb => cb.checked = false);
+  tbody.querySelectorAll("input.qty").forEach(q => q.value = "0.00");
+  tbody.querySelectorAll(".line").forEach(l => l.innerText = "₹ 0.00");
+  updateSummary();
+}
+
+function selectAllAvailable(){
+  const tbody = document.querySelector("#buyerTable tbody");
+  tbody.querySelectorAll("tr").forEach(tr=>{
+    const qtyInput = tr.querySelector("input.qty");
+    const cb = tr.querySelector("input.sel");
+    if (!qtyInput || !cb) return;
+    const id = Number(qtyInput.dataset.id);
+    const rec = records.find(x=>x.id===id);
+    const avail = rec ? (rec.available_kg ?? rec.mass_kg ?? 0) : 0;
+    if (avail > 0){ qtyInput.value = Number(avail).toFixed(2); cb.checked = true; } else { qtyInput.value = "0.00"; cb.checked = false; }
+    computeLineFor(id);
+  });
+  updateSummary();
+}
+
+async function placeOrder(){
+  const buyer_name = (document.getElementById("buyerName").value || "").trim();
+  if (!buyer_name){ alert("Please enter buyer name (it will appear on order)."); return; }
+  const items = [];
+  const tbody = document.querySelector("#buyerTable tbody");
+  tbody.querySelectorAll("tr").forEach(r=>{
+    const cb = r.querySelector("input.sel");
+    const qtyInput = r.querySelector("input.qty");
+    if (!cb || !qtyInput) return;
+    if (cb.checked){
+      const qty = Number(qtyInput.value || 0);
+      const id = Number(qtyInput.dataset.id);
+      if (qty <= 0) return;
+      const rec = records.find(x=>x.id===id);
+      const avail = rec ? (rec.available_kg ?? rec.mass_kg ?? 0) : 0;
+      if (qty > avail){
+        alert(`Requested qty (${qty}) exceeds available (${avail}) for record id ${id}.`);
+        return;
+      }
+      // compute unit price & line total
+      const unit_price = (rec.mass_kg && rec.revenue_estimate) ? (rec.revenue_estimate / rec.mass_kg) : 0;
+      const line_total = +(unit_price * qty);
+      items.push({ record_id: id, qty_kg: +qty.toFixed(2), unit_price: +unit_price.toFixed(2), line_total: +line_total.toFixed(2) });
+    }
+  });
+
+  if (items.length === 0){ alert("Please select at least one item and enter quantities."); return; }
+
+  const payload = {
+    buyer_name: buyer_name,
+    buyer_phone: (document.getElementById("buyerPhone").value || "").trim(),
+    buyer_location: "",
+    items
+  };
+
+  try {
+    const btn = document.getElementById("placeOrderBtn");
+    btn.disabled = true;
+    btn.innerText = "Placing order...";
+    // POST aggregated order to backend - ensure your backend supports this shape
+    const res = await fetch(BACKEND + "/api/v1/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok){
+      const err = await res.json().catch(()=>null);
+      alert("Order failed: " + (err?.detail || err?.message || res.statusText || res.status));
+      btn.disabled = false;
+      btn.innerText = "🛒 Place Order";
+      return;
+    }
+    const data = await res.json();
+    // backend should return {order_id, total_price} or similar
+    alert(`Order placed! id=${data.order_id || data.id || 'n/a'}  Total: ₹ ${data.total_price ?? data.total_price_estimate ?? 'see backend'}`);
+    await loadData();
+    btn.innerText = "🛒 Place Order";
+  } catch (err) {
+    console.error(err);
+    alert("Unexpected error placing order. See console.");
+    const btn = document.getElementById("placeOrderBtn");
+    btn.disabled = false;
+    btn.innerText = "🛒 Place Order";
+  }
+}
+
+async function loadOrders(){
+  try {
+    const res = await fetch(BACKEND + "/api/v1/orders");
+    if (!res.ok) throw new Error("Failed to load orders");
+    const json = await res.json();
+    const list = json.orders || [];
+    ordersCache = list;
+    renderOrders(list);
+  } catch (err) {
+    console.warn("Could not load orders", err);
+    document.getElementById("ordersArea").innerText = "Failed to load orders.";
+  }
+}
+
+function renderOrders(list){
+  if (!list || list.length === 0){ document.getElementById("ordersArea").innerText = "No orders yet."; return; }
+  let html = `<div style="max-height:220px; overflow:auto;">`;
+  list.forEach(o=>{
+    // show a compact items list if present
+    let itemsHtml = "";
+    if (o.items && Array.isArray(o.items)) {
+      itemsHtml = o.items.map(it => `[rec:${it.record_id} q:${it.qty_kg}kg ₹${(it.line_total ?? (it.qty_kg*it.unit_price)).toFixed(2)}]`).join(", ");
+    } else if (o.items_summary) {
+      itemsHtml = escapeHtml(o.items_summary);
+    } else if (o.record) {
+      itemsHtml = `[rec:${o.record_id} qty:${o.quantity_kg}kg]`;
+    }
+    html += `<div style="padding:8px 6px; border-bottom:1px solid #eee;">
+      <strong>Order #${o.id}</strong> — ${escapeHtml(o.buyer_name || o.buyer_phone || 'unknown')} — ₹ ${Number(o.total_price || o.total_price_estimate || 0).toFixed(2)} — ${o.created_at ? new Date(o.created_at).toLocaleString() : '-'}<br/>
+      <small>Items: ${itemsHtml}</small>
+    </div>`;
+  });
+  html += `</div>`;
+  document.getElementById("ordersArea").innerHTML = html;
+}
+
+function logout(){ localStorage.removeItem("agrogas_user"); window.location.href = "login.html"; }
+
+window.addEventListener("load", ()=>{
+  const user = JSON.parse(localStorage.getItem("agrogas_user") || "{}");
+  if (user.name) document.getElementById("buyerName").value = user.name;
+  if (user.phone) document.getElementById("buyerPhone").value = user.phone;
+  loadData();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Reset Password | AgroGas</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  body{font-family:'Poppins',sans-serif;background:linear-gradient(130deg,#e8f5e9,#ffffff);display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+  .card{background:white;padding:28px;border-radius:12px;width:380px;box-shadow:0 6px 30px rgba(0,0,0,0.08);text-align:center}
+  h1{color:#0f7a4a;margin-bottom:12px}
+  input{width:100%;padding:10px;margin:8px 0;border-radius:8px;border:1px solid #ccc}
+  .btn{background:#0f7a4a;color:white;border:none;padding:10px;border-radius:8px;cursor:pointer;width:100%;font-weight:600}
+  .msg{margin-top:12px;font-weight:600}
+  .msg.error{color:#c62828}
+  .msg.success{color:#0f7a4a}
+  a{color:#0f7a4a;text-decoration:none;font-weight:600}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔁 Reset Password</h1>
+    <input id="phone" placeholder="Registered phone" />
+    <input id="code" placeholder="Reset code" />
+    <input id="newpass" type="password" placeholder="New password" />
+    <button class="btn" onclick="confirmReset()">Reset Password</button>
+    <div id="msg" class="msg"></div>
+    <p style="margin-top:10px"><a href="login.html">Back to Login</a></p>
+  </div>
+
+<script>
+async function confirmReset(){
+  const phone = document.getElementById('phone').value.trim();
+  const code = document.getElementById('code').value.trim();
+  const newpass = document.getElementById('newpass').value;
+  const msg = document.getElementById('msg');
+  msg.textContent=''; msg.className='msg';
+  if(!phone || !code || !newpass){ msg.textContent='Fill all fields'; msg.classList.add('error'); return; }
+
+  try{
+    const res = await fetch('http://127.0.0.1:8000/api/v1/auth/reset-confirm',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, code, new_password: newpass })
+    });
+    const j = await res.json();
+    if(!res.ok){ throw new Error(j.detail || j.message || 'Reset failed'); }
+    msg.textContent = j.message || 'Password changed';
+    msg.classList.add('success');
+    setTimeout(()=>{ window.location.href = 'login.html'; }, 1400);
+  }catch(e){
+    msg.textContent = e.message || 'Network error';
+    msg.classList.add('error');
+  }
+}
+</script>
+</body>
+</html>
